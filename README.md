@@ -1,4 +1,4 @@
-# unbox-w2v-convnet
+# Opening the Black Box of wav2vec Feature Encoder
 
 ## How to run
 ```bash
