@@ -1,4 +1,5 @@
 # Opening the Black Box of wav2vec Feature Encoder
+Official implementation of the paper: https://arxiv.org/abs/2210.15386
 
 ## How to run
 ```bash
