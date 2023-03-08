@@ -13,5 +13,10 @@ jupyter lab
 # FYI, you may try different hyperparameter grids via fixing configs.py
 ```
 
+## Praat experiments
+You need a Praat installation beforehand to run the `praat/generate_audio.praat` via automated script, `praat/grid_audio.sh`.
+You'll have to uncomment some of the code in `configs.py` before saving the embeddings.
+
+
 ## Acknowledgements
 - Implementation of linear CKA is from https://github.com/yuanli2333/CKA-Centered-Kernel-Alignment

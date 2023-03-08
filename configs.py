@@ -78,22 +78,22 @@ exp_configs.update({
         )),
         "mag": (0.5, 0.35, 0.15),
     },
-    "f0f1f2_praat": {
-        "signal": "get_signal_from_file",
-        "freq": list(product(
-            np.linspace(100, 225, 6),
-            np.linspace(235, 850, 30),
-            np.linspace(595, 2400, 30),
-        )),
-    },
-    "f1f2_praat": {
-        "signal": "get_signal_from_file",
-        "freq": list(product(
-            [125],
-            np.linspace(235, 850, 30),
-            np.linspace(595, 2400, 30),
-        )),
-    },
+    # "f0f1f2_praat": {
+    #     "signal": "get_signal_from_file",
+    #     "freq": list(product(
+    #         np.linspace(100, 225, 6),
+    #         np.linspace(235, 850, 30),
+    #         np.linspace(595, 2400, 30),
+    #     )),
+    # },
+    # "f1f2_praat": {
+    #     "signal": "get_signal_from_file",
+    #     "freq": list(product(
+    #         [125],
+    #         np.linspace(235, 850, 30),
+    #         np.linspace(595, 2400, 30),
+    #     )),
+    # },
     "w": {
         "signal": "get_signal",
         "freq": (100, 700),
