@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from collections.abc import Iterable
+import librosa
 
 
 def get_signal(freq=None, mag=1.0, dur=1.0, sr=16_000, bias=0.0):
@@ -16,6 +17,13 @@ def get_signal(freq=None, mag=1.0, dur=1.0, sr=16_000, bias=0.0):
         t = np.linspace(0, dur, int(dur * sr), endpoint=False)
         y += m * np.sin(2 * np.pi * f * t)
     return torch.FloatTensor(y) + bias
+
+
+def get_signal_from_file(freq=None, root="./audios", sample_rate=16000):
+    assert len(freq) == 3
+    y, _ = librosa.load(f"{root}/{int(freq[0])}_{int(freq[1])}_{int(freq[2])}.wav", sr=sample_rate)
+    y /= y.max()
+    return torch.FloatTensor(y)
 
 
 def get_step_signal(base_freq, sig_freq, sig_dur_ratio=0.1):

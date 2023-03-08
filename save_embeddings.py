@@ -1,5 +1,5 @@
 from configs import umap_configs, model_configs, exp_configs
-from utils import get_signal, get_feature, get_step_signal
+from utils import get_signal, get_signal_from_file, get_feature, get_step_signal
 
 from itertools import product
 import pickle
@@ -30,8 +30,12 @@ for model_key, model_config in model_configs.items():
                 continue
 
             signal = exp_config.pop("signal")
+            getters = {
+                "get_signal": get_signal,
+                "get_signal_from_file": get_signal_from_file,
+            }
 
-            if signal == "get_signal":
+            if signal in getters.keys():
                 iter_params = {k: v for k, v in exp_config.items() if isinstance(v, list)}
                 const_params = {k: v for k, v in exp_config.items() if not isinstance(v, list)}
 
@@ -41,7 +45,7 @@ for model_key, model_config in model_configs.items():
                     param = const_params.copy()
                     param.update(dict(zip(iter_params.keys(), iter_values)))
 
-                    sig = get_signal(**param)
+                    sig = getters[signal](**param)
                     raw_feat = get_feature(model, sig)
                     feat = raw_feat.mean(0)
 
