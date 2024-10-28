@@ -29,12 +29,12 @@ def change_formants(sound, f1_target, f2_target, f3_target, max_formant):
     lpc1 = call(rs1, "To LPC (autocorrelation)", 10, 0.025, 0.005, 50) ## maybe we should try other options (burg, etc.)
     source = call([rs1, lpc1], "Filter (inverse)")
 
-    if df1 != 0:
-        call(formant, "Formula (frequencies)", f"if row = 1 then self + {df1} else self fi")
-    if df2 != 0:
-        call(formant, "Formula (frequencies)", f"if row = 2 then self + {df2} else self fi")
-    if df3 != 0: 
-        call(formant, "Formula (frequencies)", f"if row = 3 then self + {df3} else self fi")
+    #if df1 != 0:
+    call(formant, "Formula (frequencies)", f"if row = 1 then self + {df1} else self fi")
+    #if df2 != 0:
+    call(formant, "Formula (frequencies)", f"if row = 2 then self + {df2} else self fi")
+    #if df3 != 0: 
+    call(formant, "Formula (frequencies)", f"if row = 3 then self + {df3} else self fi")
 
     fGrid = call(formant, "Down to FormantGrid")
     new_sound = call([source, fGrid], "Filter")
