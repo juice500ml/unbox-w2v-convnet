@@ -6,27 +6,30 @@ from tqdm import tqdm
 import sys
 
 version = sys.argv[1] # "train" or "test"
-dest = "../phone_segments/"
+dest = "/data/user_data/eyeo2/data/CP/all_phone_segments/"
 
 # Function to convert NIST SPHERE to WAV using SoX
 def convert_to_wav(sphere_file, wav_file):
     subprocess.run(["sox", sphere_file, wav_file], check=True)
 
 # Load the TIMIT dataset
-timit = load_dataset("timit_asr", data_dir="../timit/TIMIT")
-
-# Create the output directory if it doesn't exist
+timit = load_dataset("timit_asr", data_dir="/data/user_data/eyeo2/data/timit")
 output_dir = dest + version
 os.makedirs(output_dir, exist_ok=True)
 
-# Iterate over the training set
+path = "/data/user_data/eyeo2/data/timit"
 for i in tqdm(range(len(timit[version]))):
-    spk = timit[version][i]["dialect_region"] + "_" + timit[version][i]["speaker_id"] + "_" + timit[version][i]["id"]
+    audio_path = timit[version][i]["file"]
+    dr = audio_path.split("/")[-3]
+    spk = audio_path.split("/")[-2]
+    utt = audio_path.split("/")[-1].split(".")[0]
+
+    fileinfo = f"{dr}_{spk}_{utt}"
+        
     word_info = timit[version][i]["word_detail"]
     phone_info = timit[version][i]["phonetic_detail"]
     audio_file = timit[version][i]["file"]
 
-    # Convert the NIST SPHERE file to WAV
     wav_file = audio_file.replace(".WAV", ".wav")
     convert_to_wav(audio_file, wav_file)
 
@@ -57,12 +60,8 @@ for i in tqdm(range(len(timit[version]))):
         # Segment the audio
         segment = audio[start_ms:end_ms]
 
-        # Check if the segment contains samples
-        if len(segment) == 0:
-            print(f"Warning: Segment for {current_word} {phone_utterance} contains 0 samples")
-
         # Create the filename
-        filename = f"{spk}_{j}_{current_word}_{phone_utterance}.wav"
+        filename = f"{fileinfo}_{j}_{current_word}_{phone_utterance}.wav"
         filepath = os.path.join(output_dir, filename)
 
         # Export the segment as a .wav file
