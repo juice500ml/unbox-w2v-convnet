@@ -1,23 +1,30 @@
 import os
+import argparse
+import sys
 import subprocess
+from tqdm import tqdm
+from pathlib import Path
+
 from datasets import load_dataset
 from pydub import AudioSegment
-from tqdm import tqdm
-import sys
 
-dest = "/data/user_data/eyeo2/data/CP/all_phone_segments/"
+def _prepare_cfg():
+    parser = argparse.ArgumentParser(description="Segment timit into phone-level audio files.")
+    parser.add_argument("--timit_dir", type=Path, help="Base path to the timit data directory")
+    parser.add_argument("--output_dir", type=Path, help="Output path to phoneme directory")
+    return parser.parse_args()
 
 # Function to convert NIST SPHERE to WAV using SoX
 def convert_to_wav(sphere_file, wav_file):
     subprocess.run(["sox", sphere_file, wav_file], check=True)
 
-def segment_timit(data_path, output_dir):
-    timit = load_dataset("timit_asr", data_dir=data_path)
+def segment_timit(timit_dir, output_dir):
+    timit = load_dataset("timit_asr", data_dir=timit_dir)
     for split in ["train", "test"]:
         for i in tqdm(range(len(timit[split]))):
             audio_path = timit[split][i]["file"]
             dr = audio_path.split("/")[-3] ## dialect region
-            spk = audio_path.split("/")[-2] ## speaker
+            spk = timit[split][i]["speaker_id"]
             utt = audio_path.split("/")[-1].split(".")[0] ## utterance
             fileinfo = f"{dr}_{spk}_{utt}"
                 
@@ -28,9 +35,9 @@ def segment_timit(data_path, output_dir):
             word_starts, word_ends, word_utterances = word_info["start"], word_info["stop"], word_info["utterance"]
             phone_starts, phone_ends, phone_utterances = phone_info["start"], phone_info["stop"], phone_info["utterance"]
 
-            # Load the audio file
-            convert_to_wav(audio_file, wav_file) ## convert sphere file into wav file 
+            # Convert sphere file into wav file  & Load the audio file
             wav_file = audio_file.replace(".WAV", ".wav") 
+            convert_to_wav(audio_file, wav_file)
             audio = AudioSegment.from_wav(wav_file)
 
             current_word = ""
@@ -54,9 +61,13 @@ def segment_timit(data_path, output_dir):
                 # Create the filename
                 filename = f"{fileinfo}_{j}_{current_word}_{phone_utterance}.wav"
                 filepath = os.path.join(output_dir, split, filename)
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-                # Export the segment as a .wav file
+                # Save the segment as a .wav file
                 segment.export(filepath, format="wav")
 
 if __name__ == "__main__":
-    segment_timit(data_path="/data/user_data/eyeo2/data/timit", output_dir="/data/user_data/eyeo2/data/CP/all_phone_segments/")
+    args = _prepare_cfg()
+    timit_dir = args.timit_dir
+    output_dir = args.output_dir
+    segment_timit(timit_dir=timit_dir, output_dir=output_dir)
