@@ -14,15 +14,15 @@ from extract_formants import filter_audio_by_formants
 
 # Function to prepare the argument parser
 def _prepare_cfg():
-    parser = argparse.ArgumentParser(description="Interpolate corner vowels.")
-    parser.add_argument("--base_path", type=str, help="Base path to the corner vowels directory")
+    parser = argparse.ArgumentParser(description="Interpolate vowels.")
+    parser.add_argument("--base_path", type=str, help="Base path to the vowels directory")
     parser.add_argument("--num_interpolation", type=int, default=13, help="Number of steps for interpolation")
     parser.add_argument("--spk_info", type=Path, default=Path("data_prep_timit/timit_spk.csv"), help="Speaker info for maximum formant frequency (5000 for male, 5500 for female)")
     parser.add_argument("--output_dir", type=Path, help="Output directory for the interpolated sounds")
     return parser.parse_args()
 
 def group_files_by_phone(speaker_path, file_list):
-    """Group files by their vowel phones."""
+    """Group files by their vowel phones for phoneme index."""
     sound_files = [f for f in os.listdir(speaker_path) if f.endswith('.wav') and f in file_list]
     grouped_files = {}
     for file in sound_files:
@@ -82,7 +82,7 @@ def save_interpolated_sounds_by_speaker(grouped_files, max_formant, num_steps, o
                         interpolated_sound_ab.save(output_path_ab, "WAV")
 
                     # Create filename for b->a
-                    newfn_ba = f"{speaker_id}_{phone_b}{j}_{phone_a}{i}_step{step}"
+                    newfn_ba = f"{speaker_id}_{phone_b}{j}_{phone_a}{i}_step{num_steps - step - 1}"
                     output_path_ba = os.path.join(output_folder, f"{newfn_ba}.wav")
                     if not os.path.exists(output_path_ba):
                         interpolated_sound_ba = manipulate_vowels(
@@ -100,10 +100,9 @@ if __name__ == "__main__":
     sexDict = map_sex(spk_info)
     file_list = filter_audio_by_formants(base_path, sexDict)
 
-    # Iterate through each speaker's folder
     for speaker_id in tqdm(os.listdir(base_path)):
         speaker_path = os.path.join(base_path, speaker_id)
         if os.path.isdir(speaker_path):
-            max_formant = 5000 if sexDict.get(speaker_id, "M") == "M" else 5500
+            max_formant = 5000 if sexDict[speaker_id] == "M" else 5500
             grouped_files = group_files_by_phone(speaker_path, file_list)
             save_interpolated_sounds_by_speaker(grouped_files, max_formant, num_steps, output_path, speaker_id)
