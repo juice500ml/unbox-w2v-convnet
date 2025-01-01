@@ -30,6 +30,8 @@ def group_files_by_phone(speaker_path, file_list):
         if phone not in grouped_files:
             grouped_files[phone] = []
         grouped_files[phone].append(os.path.join(speaker_path, file))
+    for phone, files in grouped_files.items():
+        print(f"Number of .wav files for phoneme {phone}: {len(files)}")
     return grouped_files
 
 def get_avg_formants(sound, max_formant):
@@ -44,51 +46,50 @@ def manipulate_vowels(sound, new_f1, new_f2, new_f3, max_formant):
     result = change_formants(sound, new_f1, new_f2, new_f3, max_formant)
     return result
 
-def save_interpolated_sounds_by_speaker(grouped_files, max_formant, num_steps, output_dir, speaker_id):
-    """
-    Create interpolated sounds between all combinations of grouped vowel files for a single speaker.
-    """
+def save_interpolated_sounds_by_speaker(grouped_files, pairs, max_formant, num_steps, output_dir, speaker_id):
     # Create output folder for speaker
     output_folder = os.path.join(output_dir, speaker_id)
     os.makedirs(output_folder, exist_ok=True)
 
     # Iterate through all pairs of phones
     for (phone_a, files_a), (phone_b, files_b) in itertools.combinations(grouped_files.items(), 2):
-        # Iterate through all combinations of files within each phone group
-        for i, file_a in enumerate(files_a, start=1):
-            for j, file_b in enumerate(files_b, start=1):
-                # Load sounds
-                sound_a = parselmouth.Sound(file_a)
-                sound_b = parselmouth.Sound(file_b)
+        if (phone_a, phone_b) in pairs:
+            print(f"Interpolating {phone_a} and {phone_b}...")
+            # Iterate through all combinations of files within each phone group
+            for i, file_a in enumerate(files_a, start=1):
+                for j, file_b in enumerate(files_b, start=1):
+                    # Load sounds
+                    sound_a = parselmouth.Sound(file_a)
+                    sound_b = parselmouth.Sound(file_b)
 
-                # Get average formants
-                f1_a, f2_a, f3_a = get_avg_formants(sound_a, max_formant)
-                f1_b, f2_b, f3_b = get_avg_formants(sound_b, max_formant)
+                    # Get average formants
+                    f1_a, f2_a, f3_a = get_avg_formants(sound_a, max_formant)
+                    f1_b, f2_b, f3_b = get_avg_formants(sound_b, max_formant)
 
-                # Interpolate formants
-                f1_values = np.linspace(f1_a, f1_b, num_steps)
-                f2_values = np.linspace(f2_a, f2_b, num_steps)
-                f3_values = np.linspace(f3_a, f3_b, num_steps)
+                    # Interpolate formants
+                    f1_values = np.linspace(f1_a, f1_b, num_steps)
+                    f2_values = np.linspace(f2_a, f2_b, num_steps)
+                    f3_values = np.linspace(f3_a, f3_b, num_steps)
 
-                # Generate interpolated sounds for each step
-                for step in range(num_steps):
-                    # Create filename for a->b
-                    newfn_ab = f"{speaker_id}_{phone_a}{i}_{phone_b}{j}_step{step}"
-                    output_path_ab = os.path.join(output_folder, f"{newfn_ab}.wav")
-                    if not os.path.exists(output_path_ab):
-                        interpolated_sound_ab = manipulate_vowels(
-                            sound_a, f1_values[step], f2_values[step], f3_values[step], max_formant
-                        )
-                        interpolated_sound_ab.save(output_path_ab, "WAV")
+                    # Generate interpolated sounds for each step
+                    for step in range(num_steps):
+                        # Create filename for a->b
+                        newfn_ab = f"{speaker_id}_{phone_a}{i}_{phone_b}{j}_step{step}"
+                        output_path_ab = os.path.join(output_folder, f"{newfn_ab}.wav")
+                        if not os.path.exists(output_path_ab):
+                            interpolated_sound_ab = manipulate_vowels(
+                                sound_a, f1_values[step], f2_values[step], f3_values[step], max_formant
+                            )
+                            interpolated_sound_ab.save(output_path_ab, "WAV")
 
-                    # Create filename for b->a
-                    newfn_ba = f"{speaker_id}_{phone_b}{j}_{phone_a}{i}_step{num_steps - step - 1}"
-                    output_path_ba = os.path.join(output_folder, f"{newfn_ba}.wav")
-                    if not os.path.exists(output_path_ba):
-                        interpolated_sound_ba = manipulate_vowels(
-                            sound_b, f1_values[step], f2_values[step], f3_values[step], max_formant
-                        )
-                        interpolated_sound_ba.save(output_path_ba, "WAV")
+                        # Create filename for b->a
+                        newfn_ba = f"{speaker_id}_{phone_b}{j}_{phone_a}{i}_step{num_steps - step - 1}"
+                        output_path_ba = os.path.join(output_folder, f"{newfn_ba}.wav")
+                        if not os.path.exists(output_path_ba):
+                            interpolated_sound_ba = manipulate_vowels(
+                                sound_b, f1_values[step], f2_values[step], f3_values[step], max_formant
+                            )
+                            interpolated_sound_ba.save(output_path_ba, "WAV")
 
 if __name__ == "__main__":
     args = _prepare_cfg()
@@ -99,10 +100,11 @@ if __name__ == "__main__":
 
     sexDict = map_sex(spk_info)
     file_list = filter_audio_by_formants(base_path, sexDict)
+    pairs = [("iy", "ih"), ("ih", "eh"), ("eh", "ae"), ("iy", "uw"), ("ih", "uh"), ("eh", "ah"), ("ae", "aa"), ("uw", "uh"), ("uw", "ao"), ("ao","aa")]
 
     for speaker_id in tqdm(os.listdir(base_path)):
+        print(speaker_id)
         speaker_path = os.path.join(base_path, speaker_id)
-        if os.path.isdir(speaker_path):
-            max_formant = 5000 if sexDict[speaker_id] == "M" else 5500
-            grouped_files = group_files_by_phone(speaker_path, file_list)
-            save_interpolated_sounds_by_speaker(grouped_files, max_formant, num_steps, output_path, speaker_id)
+        max_formant = 5000 if sexDict[speaker_id] == "M" else 5500
+        grouped_files = group_files_by_phone(speaker_path, file_list)        
+        save_interpolated_sounds_by_speaker(grouped_files, pairs, max_formant, num_steps, output_path, speaker_id)
