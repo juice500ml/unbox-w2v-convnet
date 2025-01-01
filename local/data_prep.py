@@ -30,13 +30,16 @@ def _prepare_authentic_timit(authentic_timit_path: Path, df_path="spk_info.csv")
         spk = p.stem.split("_")[1] 
         split = spk_split_map[spk]
         phn = filename.split("_")[-1]
+        duration = parselmouth.Sound(audio_path).get_total_duration()
+        if duration < 0.025:
+            continue
         rows.append(
             {
                 "audio_path": audio_path,
                 "filename": filename,
                 "speaker": spk,
                 "phonemes": phn,
-                "duration": 0.5,
+                "duration": duration,
                 "split": split
             }
         )
@@ -51,6 +54,8 @@ def _prepare_synthetic_timit(synthetic_timit_path: Path):
         spk = p.stem.split("_")[0] 
         phn = filename.split("_")[1] + "_" + filename.split("_")[2]
         duration = parselmouth.Sound(audio_path).get_total_duration()
+        if duration < 0.025:
+            continue
         rows.append(
             {
                 "audio_path": audio_path,
