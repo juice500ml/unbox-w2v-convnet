@@ -1,5 +1,5 @@
 from configs import umap_configs, model_configs, exp_configs
-from utils import get_signal, get_signal_from_file, get_feature, get_step_signal
+from utils import get_signal, get_signal_from_file, get_feature, get_step_signal, get_signal_diphthong
 
 from itertools import product
 import pickle
@@ -78,4 +78,24 @@ for model_key, model_config in model_configs.items():
                     "mask": mask,
                     "base_feat": base_feat,
                     "sig_feat": sig_feat,
+                }, open(path, "wb"))
+
+            if signal == "get_signal_diphthong":
+                feats = pickle.load(open(f"pkls/{model_key}_{umap_key}_f1f2.pkl", "rb"))["feats"]
+                reducer.fit(feats)
+
+                iter_params = {k: v for k, v in exp_config.items() if isinstance(v, list)}
+                const_params = {k: v for k, v in exp_config.items() if not isinstance(v, list)}
+
+                embs = []
+                for iter_values in tqdm(product(*iter_params.values())):
+                    param = const_params.copy()
+                    param.update(dict(zip(iter_params.keys(), iter_values)))
+
+                    sig = get_signal_diphthong(**param)
+                    feats = get_feature(model, sig)
+                    embs.append(reducer.transform(feats))
+
+                pickle.dump({
+                    "embs": embs,
                 }, open(path, "wb"))

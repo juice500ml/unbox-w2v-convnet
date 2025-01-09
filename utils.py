@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from collections.abc import Iterable
 import librosa
+from scipy.signal import chirp
 
 
 def get_signal(freq=None, mag=1.0, dur=1.0, sr=16_000, bias=0.0):
@@ -24,6 +25,20 @@ def get_signal_from_file(freq=None, root="./audios", sample_rate=16000):
     y, _ = librosa.load(f"{root}/{int(freq[0])}_{int(freq[1])}_{int(freq[2])}.wav", sr=sample_rate)
     y /= y.max()
     return torch.FloatTensor(y)
+
+
+def get_signal_diphthong(freq_start=None, freq_finish=None, f0=None, mag=1.0, dur=1.0, sr=16_000, bias=0.0):
+    assert len(freq_start) == len(freq_finish)
+    if not isinstance(mag, Iterable):
+        mag = [mag] * (len(freq_start) + 1)
+
+    t = np.linspace(0, dur, int(dur * sr), endpoint=False)
+    y = mag[0] * np.sin(2 * np.pi * f0 * t)
+
+    for m, s, f in zip(mag[1:], freq_start, freq_finish):
+        y += m * chirp(t, f0=s, f1=f, t1=dur, method="linear")
+
+    return torch.FloatTensor(y) + bias
 
 
 def get_step_signal(base_freq, sig_freq, sig_dur_ratio=0.1):

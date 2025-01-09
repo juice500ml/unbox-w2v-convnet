@@ -34,6 +34,11 @@ model_configs = {
     },
 }
 
+vowels = {
+    "ipa": list("ieɛaɑʌɤɯyøœɶɒɔou"),
+    "f1": [240, 390, 610, 850, 750, 600, 460, 300, 235, 370, 585, 820, 700, 500, 360, 250],
+    "f2": [2400, 2300, 1900, 1610, 940, 1170, 1310, 1390, 2100, 1900, 1710, 1530, 750, 700, 640, 595],
+}
 
 exp_configs = {}
 exp_configs.update({
@@ -66,6 +71,15 @@ exp_configs.update({
             [120],
             np.linspace(235, 850, 30),
             np.linspace(595, 2400, 30),
+        )),
+        "mag": (0.5, 0.35, 0.15),
+    },
+    "f1f2_detailed": {
+        "signal": "get_signal",
+        "freq": list(product(
+            [120],
+            np.linspace(100, 1000, 200),
+            np.linspace(100, 3000, 600),
         )),
         "mag": (0.5, 0.35, 0.15),
     },
@@ -103,4 +117,13 @@ exp_configs.update({
             np.square(np.linspace(np.sqrt(0.1), np.sqrt(0.5), 20)),
         ))
     },
+    "diphthong": {
+        "signal": "get_signal_diphthong",
+        "f0": 120,
+        "freq_start": list(zip(vowels["f1"], vowels["f2"])),
+        "freq_finish": list(zip(vowels["f1"], vowels["f2"])),
+        "mag": (0.5, 0.35, 0.15),
+        "dur": 2.0,
+        "margin": 0.1,
+    }
 })
