@@ -14,6 +14,7 @@ def _get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="microsoft/wavlm-large", help="Huggingface model name")
     parser.add_argument("--dataset_csv", type=Path, help="Dataset to extract features")
+    parser.add_argument("--split", default="test", choices=("train", "test"), help="Dataset split to use")
     parser.add_argument("--output_path", type=Path, help="Output pkl path")
     parser.add_argument("--device", default="cpu", help="Device to infer, cpu or cuda:0 (gpu)")
     parser.add_argument("--framewise", action="store_true", help="store all the frames")
@@ -50,7 +51,8 @@ def _get_stride_size(model):
 if __name__ == "__main__":
     args = _get_args()
 
-    df = pd.read_pickle(args.dataset_csv)
+    df = pd.read_csv(args.dataset_csv)
+    df = df[df.split == args.split]
 
     raw_data_path = args.output_path.parent / f"{args.output_path.stem}.raw.pkl"
 

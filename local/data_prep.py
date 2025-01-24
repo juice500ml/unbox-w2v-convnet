@@ -3,8 +3,24 @@ from pathlib import Path
 from tqdm import tqdm
 import argparse
 import pandas as pd
-import parselmouth
+import librosa
 import os
+import re
+
+
+def get_spk_metadata(spk, df=pd.read_csv(Path(__file__).parent / "timit_speaker_metadata.csv")):
+    row = df[df.speaker == spk].iloc[0]
+    return row.sex, row.split
+
+
+def get_phn_metadata(phn):
+    match = re.match(r"([a-zA-Z]+)(\d+)$", phn)
+    return match.group(1), match.group(2)
+
+
+def get_continuum_id(spk, phn_start, phn_start_id, phn_end, phn_end_id):
+    return f"{spk}-{phn_start}{phn_start_id}-{phn_end}{phn_end_id}"
+
 
 def _get_args():
     parser = argparse.ArgumentParser()
@@ -19,55 +35,58 @@ def map_splits(df_path="spk_info.csv"):
     spk_split_map = dict(zip(list(df['speaker']), list(df['split'])))
     return spk_split_map
 
+
 ## audio_path, filename, speaker, phoneme, duration, split
-def _prepare_authentic_timit(authentic_timit_path: Path, df_path="spk_info.csv"):
-    spk_split_map = map_splits(df_path)
+def _prepare_authentic_timit(authentic_timit_path: Path):
     rows = []
     for p in tqdm(authentic_timit_path.glob("**/*.wav")):
         audio_path = str(p)
         filename = p.stem
         split = p.parent.name
-        spk = p.stem.split("_")[1] 
-        split = spk_split_map[spk]
+        spk = p.stem.split("_")[1]
+        _, split = get_spk_metadata(spk)
         phn = filename.split("_")[-1]
-        duration = parselmouth.Sound(audio_path).get_total_duration()
+        duration = librosa.get_duration(path=audio_path)
         if duration < 0.025:
             continue
-        rows.append(
-            {
-                "audio_path": audio_path,
-                "filename": filename,
-                "speaker": spk,
-                "phonemes": phn,
-                "duration": duration,
-                "split": split
-            }
-        )
+        rows.append({
+            "audio_path": audio_path,
+            "filename": filename,
+            "speaker": spk,
+            "phonemes": phn,
+            "duration": duration,
+            "split": split
+        })
     return pd.DataFrame(rows)
+
 
 ## audio_path, filename, speaker, phoneme, duration
 def _prepare_synthetic_timit(synthetic_timit_path: Path):
     rows = []
     for p in tqdm(synthetic_timit_path.glob("**/*.wav")):
         audio_path = str(p)
-        filename = p.stem
-        spk = p.stem.split("_")[0] 
-        phn = filename.split("_")[1] + "_" + filename.split("_")[2]
-        duration = parselmouth.Sound(audio_path).get_total_duration()
+        spk, phn_start_and_id, phn_end_and_id, step = p.stem.split("_")
+        phn_start, phn_start_id = get_phn_metadata(phn_start_and_id)
+        phn_end, phn_end_id = get_phn_metadata(phn_end_and_id)
+        spk_sex, split = get_spk_metadata(spk)
+
+        duration = librosa.get_duration(path=audio_path)
         if duration < 0.025:
             continue
-        rows.append(
-            {
-                "audio_path": audio_path,
-                "filename": filename,
-                "speaker": spk,
-                "phonemes": phn,
-                "iteration": filename.split(".")[0].split("_")[-1],
-                "duration": duration,
-                "split": "test"
-            }
-        )
+        rows.append({
+            "audio_path": str(p),
+            "speaker": spk,
+            "phn_start": phn_start,
+            "phn_start_id": phn_start_id,
+            "phn_end": phn_end,
+            "phn_end_id": phn_end_id,
+            "continuum": get_continuum_id(spk, phn_start, phn_start_id, phn_end, phn_end_id),
+            "step": int(step[4:]),
+            "duration": duration,
+            "split": split,
+        })
     return pd.DataFrame(rows)
+
 
 if __name__ == "__main__":
     args = _get_args()
@@ -79,8 +98,7 @@ if __name__ == "__main__":
 
     os.makedirs(args.output_path, exist_ok=True)
     if args.num_interpolation is not None:
-        csv_path = args.output_path / f"{args.dataset_type}_{args.num_interpolation}.original.pkl"
+        csv_path = args.output_path / f"{args.dataset_type}_{args.num_interpolation}.csv"
     else:
-        csv_path = args.output_path / f"{args.dataset_type}.original.pkl"
-    df.to_pickle(csv_path)
-    df.to_csv(str(csv_path).replace(".pkl", ".csv"), index=False)
+        csv_path = args.output_path / f"{args.dataset_type}.csv"
+    df.to_csv(str(csv_path), index=False)
