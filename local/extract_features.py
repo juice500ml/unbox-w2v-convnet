@@ -14,7 +14,7 @@ def _get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="microsoft/wavlm-large", help="Huggingface model name")
     parser.add_argument("--dataset_csv", type=Path, help="Dataset to extract features")
-    parser.add_argument("--split", default="test", choices=("train", "test"), help="Dataset split to use")
+    parser.add_argument("--split", default="both", choices=("train", "test", "both"), help="Dataset split to use")
     parser.add_argument("--output_path", type=Path, help="Output pkl path")
     parser.add_argument("--device", default="cpu", help="Device to infer, cpu or cuda:0 (gpu)")
     parser.add_argument("--framewise", action="store_true", help="store all the frames")
@@ -32,10 +32,18 @@ def _get_feat(row, feats, pool, stride_size):
         return np.clip(i, 0, len(f) - 1)
 
     if pool == "center":
-        index = _sec_to_index((row["duration"]) / 2.0)
+        if "duration" in row:
+            index = _sec_to_index((row["duration"]) / 2.0)
+        else:
+            index = _sec_to_index((row["min"] + row["max"]) / 2.0)
         return f[index]
     elif pool == "average":
-        return f.mean(0)
+        if "duration" in row:
+            return f.mean(0)
+        else:
+            start_index = _sec_to_index(row["min"])
+            end_index = _sec_to_index(row["max"])
+            return f[start_index:end_index+1].mean(0)
     else:
         raise ValueError(f"Wrong parameter for pool: {pool}")
 
@@ -52,7 +60,8 @@ if __name__ == "__main__":
     args = _get_args()
 
     df = pd.read_csv(args.dataset_csv)
-    df = df[df.split == args.split]
+    if args.split != "both":
+        df = df[df.split == args.split]
 
     raw_data_path = args.output_path.parent / f"{args.output_path.stem}.raw.pkl"
 

@@ -3,6 +3,10 @@ torch==1.12.1
 torchaudio==0.12.1
 transformers==4.22.2
 numpy==1.21.5
-tqdm==4.64.0
-jupyterlab==3.4.8
-umap==0.5.3
+tqdm
+jupyterlab
+umap-learn
+pyworld
+datasets
+cuml-cu11 --extra-index-url=https://pypi.nvidia.com
+praatio>=6.0
