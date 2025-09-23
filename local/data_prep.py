@@ -29,7 +29,7 @@ def get_continuum_id(spk, phn_start, phn_start_id, phn_end, phn_end_id):
 def _get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_path", type=Path, help="Path to dataset")
-    parser.add_argument("--dataset_type", type=str, choices=["timit_authentic", "timit_synthetic", "timit_hf", "sylber"])
+    parser.add_argument("--dataset_type", type=str, choices=["timit_authentic", "timit_synthetic", "timit_hf", "sylber", "voxangeles"])
     parser.add_argument("--num_interpolation", type=int, default=None)
     parser.add_argument("--output_path", type=Path, help="Output csv folder")
     return parser.parse_args()
@@ -181,6 +181,23 @@ def _prepare_sylber(root_path: Path):
     return df
 
 
+def _prepare_voxangeles(root_path: Path):
+    rows = []
+
+    for path in (root_path / "data/audited_aligned").glob("**/*.TextGrid"):
+        grid = praatio.textgrid.openTextgrid(path, includeEmptyIntervals=False)
+        tier_name = next((x for x in grid.tierNames if x in ("phone", "phones", "Narrow")))
+        for entry in grid.getTier(tier_name).entries:
+            rows.append({
+                "audio_path": str(path.with_suffix(".wav")),
+                "min": entry.start,
+                "max": entry.end,
+                "phone": entry.label,
+            })
+
+    return pd.DataFrame(rows)
+
+
 if __name__ == "__main__":
     args = _get_args()
     print(args)
@@ -190,6 +207,7 @@ if __name__ == "__main__":
         "timit_synthetic": _prepare_synthetic_timit,
         "timit_hf": _prepare_hf_timit,
         "sylber": _prepare_sylber,
+        "voxangeles": _prepare_voxangeles,
     }[args.dataset_type]
     df = _prepare(args.dataset_path)
 
