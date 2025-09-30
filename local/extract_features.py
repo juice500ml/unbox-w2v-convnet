@@ -18,32 +18,27 @@ def _get_args():
     parser.add_argument("--output_path", type=Path, help="Output pkl path")
     parser.add_argument("--device", default="cpu", help="Device to infer, cpu or cuda:0 (gpu)")
     parser.add_argument("--layer_index", type=int, help="Layer index", default=-1)
-    parser.add_argument("--store_raw_data", action="store_true", help="Store raw features")
-    parser.add_argument("--pool", default="center", choices=("center", "average"), help="Pooling method")
+    parser.add_argument("--pool", default="center", choices=("center", "average", "none"), help="Pooling method")
     parser.add_argument("--slice", action="store_true", help="Slice audio")
     return parser.parse_args()
 
 
-def _get_feat(row, feats, pool, stride_size):
+def _slice_feats(row, feats, stride_size):
     f = feats[row.audio_path]
-    
     def _sec_to_index(t):
         i = int(t * 16000) // stride_size
         return np.clip(i, 0, len(f) - 1)
+    start_index = _sec_to_index(row["min"])
+    end_index = _sec_to_index(row["max"])
+    return f[start_index:end_index+1]
 
+def _pool_feats(row, pool):
     if pool == "center":
-        if "duration" in row:
-            index = _sec_to_index((row["duration"]) / 2.0)
-        else:
-            index = _sec_to_index((row["min"] + row["max"]) / 2.0)
-        return f[index]
+        return row.feat[int(len(row.feat) / 2)]
     elif pool == "average":
-        if "duration" in row:
-            return f.mean(0)
-        else:
-            start_index = _sec_to_index(row["min"])
-            end_index = _sec_to_index(row["max"])
-            return f[start_index:end_index+1].mean(0)
+        return row.feat.mean(0)
+    elif pool == "none":
+        return row.feat
     else:
         raise ValueError(f"Wrong parameter for pool: {pool}")
 
@@ -101,6 +96,7 @@ def _infer(x, processor, model, args):
         outputs = model(output_hidden_states=True, **{k: t.to(args.device) for k, t in x.items()})
         return outputs.hidden_states[args.layer_index].cpu().detach().numpy()[0]
 
+
 if __name__ == "__main__":
     args = _get_args()
 
@@ -116,21 +112,45 @@ if __name__ == "__main__":
             data = pickle.load(f)
     else:
         print("Extracting features...")
-        processor = Wav2Vec2FeatureExtractor.from_pretrained(args.model)
-        model = AutoModel.from_pretrained(args.model).to(args.device)
-
-        if args.slice:
-            df["feat"] = None
-            for path in tqdm(df.audio_path.unique()):
+        if args.model == "melspec" or args.model == "mfcc":
+            feat_func = {
+                "melspec": librosa.feature.melspectrogram,
+                "mfcc": librosa.feature.mfcc,
+            }[args.model]
+            for path in tqdm(df.audio.unique()):
                 x, _ = librosa.load(path, sr=16000, mono=True)
-                for row in df[df.audio_path == path].itertuples():
-                    sliced_x = _slice_with_min_window(x, int(row.min * 16000), int(row.max * 16000), _get_window_size(args.model))
-                    df.at[row.Index, "feat"] = _infer(sliced_x, processor, model, args)
+                data[path] = feat_func(y=x, sr=16000).T
+
+            if args.slice:
+                df["feat"] = None
+                for path in tqdm(df.audio_path.unique()):
+                    x, _ = librosa.load(path, sr=16000, mono=True)
+                    for row in df[df.audio_path == path].itertuples():
+                        sliced_x = _slice_with_min_window(x, int(row.min * 16000), int(row.max * 16000), _get_window_size(args.model))
+                        df.at[row.Index, "feat"] = feat(y=x, sr=16000).T
+            else:
+                data = {}
+                for path in tqdm(df.audio_path.unique()):
+                    x, _ = librosa.load(path, sr=16000, mono=True)
+                    data[path] = feat_func(y=x, sr=16000).T
+                df["feat"] = df.apply(functools.partial(_get_feat, feats=data, stride_size=_get_stride_size(args.model)), axis=1)
         else:
-            data = {}
-            for path in tqdm(df.audio_path.unique()):
-                x, _ = librosa.load(path, sr=16000, mono=True)
-                data[path] = _infer(x, processor, model, args)
-            df["feat"] = df.apply(functools.partial(_get_feat, feats=data, pool=args.pool, stride_size=_get_stride_size(args.model)), axis=1)
+            processor = Wav2Vec2FeatureExtractor.from_pretrained(args.model)
+            model = AutoModel.from_pretrained(args.model).to(args.device)
 
+            if args.slice:
+                df["feat"] = None
+                for path in tqdm(df.audio_path.unique()):
+                    x, _ = librosa.load(path, sr=16000, mono=True)
+                    for row in df[df.audio_path == path].itertuples():
+                        sliced_x = _slice_with_min_window(x, int(row.min * 16000), int(row.max * 16000), _get_window_size(args.model))
+                        df.at[row.Index, "feat"] = _infer(sliced_x, processor, model, args)
+            else:
+                data = {}
+                for path in tqdm(df.audio_path.unique()):
+                    x, _ = librosa.load(path, sr=16000, mono=True)
+                    data[path] = _infer(x, processor, model, args)
+                df["feat"] = df.apply(functools.partial(_slice_feats, feats=data, stride_size=_get_stride_size(args.model)), axis=1)
+
+    df["feat"] = df.apply(functools.partial(_pool_feats, pool=args.pool), axis=1)
     df.to_pickle(args.output_path)
