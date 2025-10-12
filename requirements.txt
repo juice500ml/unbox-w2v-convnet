@@ -7,6 +7,6 @@ tqdm
 jupyterlab
 umap-learn
 pyworld
-datasets
+datasets<3
 cuml-cu11 --extra-index-url=https://pypi.nvidia.com
 praatio>=6.0

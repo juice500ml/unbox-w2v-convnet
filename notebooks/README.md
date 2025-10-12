@@ -5,7 +5,7 @@ Note. You need to copy all the content outside this folder.
 ```bash
 # TIMIT
 envs/bin/python3 local/data_prep.py \
-    --dataset_path hf_cache \
+    --dataset_path datasets/timit \
     --dataset_type timit_hf \
     --output_path data
 

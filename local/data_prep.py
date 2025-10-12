@@ -9,7 +9,6 @@ import librosa
 import os
 import re
 from datasets import load_dataset
-from timit import TIMITConverter
 
 
 def get_spk_metadata(spk, df=pd.read_csv(Path(__file__).parent / "timit_speaker_metadata.csv")):
@@ -44,7 +43,6 @@ def map_splits(df_path="spk_info.csv"):
 def _prepare_hf_timit(timit_path: Path):
     # adapted from https://github.com/juice500ml/acoustic-units-for-ood/blob/main/dataset_prep.py
     timit = load_dataset("timit_asr", data_dir=timit_path, trust_remote_code=True)
-    converter = TIMITConverter()
 
     rows = []
     for split in ["train", "test"]:
@@ -53,19 +51,100 @@ def _prepare_hf_timit(timit_path: Path):
             speaker = utterance["speaker_id"]
             alignment = utterance["phonetic_detail"]
             for phn, start, stop in zip(alignment["utterance"], alignment["start"], alignment["stop"]):
-                # phn could be mapped to sil, which is removed
-                arpa_phones = converter.convert(phn)
-                if len(arpa_phones) == 0:
-                    continue
-                arpa_phone = arpa_phones[0]
+                ipa = {
+                    # Stops
+                    "b": "b",
+                    "d": "d",
+                    "g": "ɡ",
+                    "p": "p",
+                    "t": "t",
+                    "k": "k",
+                    "dx": "ɾ",
+                    "q": "ʔ",
+
+                    # Affricates
+                    "jh": "d͡ʒ",
+                    "ch": "t͡ʃ",
+
+                    # Fricatives
+                    "s": "s",
+                    "sh": "ʃ",
+                    "z": "z",
+                    "zh": "ʒ",
+                    "f": "f",
+                    "th": "θ",
+                    "v": "v",
+                    "dh": "ð",
+
+                    # Nasals
+                    "m": "m",
+                    "n": "n",
+                    "ng": "ŋ",
+                    "em": "m̩",
+                    "en": "n̩",
+                    "eng": "ŋ̍",
+                    "nx": "ɾ̃",
+
+                    # Semivowels and Glides
+                    "l": "l",
+                    "r": "ɹ",
+                    "w": "w",
+                    "y": "j",
+                    "hh": "h",
+                    "hv": "ɦ",
+                    "el": "l̩",
+
+                    # Vowels
+                    "iy": "i",
+                    "ih": "ɪ",
+                    "eh": "ɛ",
+                    "ae": "æ",
+                    "aa": "ɑ",
+                    "ah": "ʌ",
+                    "ao": "ɔ",
+                    "uh": "ʊ",
+                    "uw": "u",
+                    "ux": "ʉ",
+                    "er": "ɝ",
+                    "ax": "ə",
+                    "ix": "ɨ",
+                    "axr": "ɚ",
+                    "ax-h": "ə̯",
+
+                    # Diphthongs
+                    # These are ignored for simplicity
+                    "ey": None,
+                    "aw": None,
+                    "ay": None,
+                    "oy": None,
+                    "ow": None,
+
+                    # Stops closures
+                    # These are attached to their succeeding stop
+                    "bcl": None,
+                    "dcl": None,
+                    "gcl": None,
+                    "pcl": None,
+                    "tcl": None,
+                    "kcl": None,
+
+                    # Non-speech
+                    "pau": None,
+                    "epi": None,
+                    "h#": None,
+                }[phn]
+                if phn in ("b", "d", "g", "p", "t", "k", "jh", "ch"):
+                    closure = {"b": "bcl", "d": "dcl", "g": "gcl", "p": "pcl", "t": "tcl", "k": "kcl", "jh": "dcl", "ch": "tcl"}[phn]
+                    if rows[-1]["timit_phn"] == closure:
+                        start = rows[-1]["min"] * 16000
 
                 rows.append({
                     "audio_path": audio_path,
                     "speaker": speaker,
                     "min": start / 16000,
                     "max": stop / 16000,
-                    "phone": arpa_phone,
-                    "allophone": phn,
+                    "timit_phn": phn,
+                    "ipa": ipa,
                     "split": split
                 })
 
